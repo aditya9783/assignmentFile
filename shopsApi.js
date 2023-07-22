@@ -13,7 +13,7 @@ app.use(function (req, res, next) {
   );
   next();
 });
-const port = process.env.PORT||2410
+const port =2410
 app.listen(port, () => console.log(`Node app listening on port ${port}!`));
 
 let {datas} = require("./shopData");
@@ -65,6 +65,93 @@ app.post("/shops",function(req,res){
       }
   })
 })
+app.get("/totalPurchases/shops/:id",function(req,res){
+    let id= +req.params.id
+    fs.readFile(fname2,"utf8",function(err,content){
+        if(err) console.log(err);
+        else{
+            let data=JSON.parse(content);
+            
+            let arr=data.filter((sh)=>sh.shopid === id);
+           
+            let arr2=arr.reduce ((acc,curr)=> {
+                    let arr=acc.find((ar)=>ar.productid===curr.productid);
+                   
+                    if(arr){
+                        
+                        arr.productquantity = +curr.quantity + arr.productquantity;
+                    }
+                    else{
+                        acc.push({productid:curr.productid,productquantity: +curr.quantity})
+                    }
+                    console.log(acc);
+                    return acc;
+                        
+            },[])
+           
+            res.send(arr2);
+        }
+    })
+  });
+  app.get("/purchases/shops/:id",function(req,res){
+    let id= +req.params.id
+  fs.readFile(fname2,"utf8",function(err,content){
+      if(err) console.log(err);
+      else{
+          let data=JSON.parse(content);
+          console.log(data);
+          let cst=data.filter(ct=>ct.shopid===id);
+          if(cst) res.send(cst)
+          else {
+              res.status(404).send("No products Found");
+          }
+      }
+  })
+})
+app.get("/productPurchases/product/:id",function(req,res){
+    let id= +req.params.id
+  fs.readFile(fname2,"utf8",function(err,content){
+      if(err) console.log(err);
+      else{
+          let data=JSON.parse(content);
+          console.log(data);
+          let cst=data.filter(ct=>ct.productid===id);
+          if(cst) res.send(cst)
+          else {
+              res.status(404).send("No products Found");
+          }
+      }
+  })
+})
+app.get("/productPurchases/shops/:id",function(req,res){
+    let id= +req.params.id
+    fs.readFile(fname2,"utf8",function(err,content){
+        if(err) console.log(err);
+        else{
+            let data=JSON.parse(content);
+            
+            let arr=data.filter((sh)=>sh.productid === id);
+           
+            let arr2=arr.reduce ((acc,curr)=> {
+                    let arr=acc.find((ar)=>ar.shopid===curr.shopid);
+                   
+                    if(arr){
+                        
+                        arr.sum = +curr.quantity + arr.sum;
+                    }
+                    else{
+                        acc.push({shopid:curr.shopid,sum: +curr.quantity})
+                    }
+                    console.log(acc);
+                    return acc;
+                        
+            },[])
+           
+            res.send(arr2);
+        }
+    })
+  });
+
 app.get("/products",function(req,res){
   fs.readFile(fname1,"utf8",function(err,content){
       if(err) console.log(err);
@@ -137,11 +224,39 @@ app.post("/products",function(req,res){
   })
 })
 app.get("/purchases",function(req,res){
+    let product=req.query.product;
+    let shop=req.query.shop;
+    let sort=req.query.sort
+    console.log(product,shop,sort);
   fs.readFile(fname2,"utf8",function(err,content){
       if(err) console.log(err);
       else{
           let data=JSON.parse(content);
-          res.send(data);
+          let arr=data;
+          console.log(arr);
+          if(shop){
+            let sh1= +shop.substring(2);
+            console.log(sh1);
+            arr=arr.filter((sh)=>sh.shopid===sh1);
+            
+          }
+          if(product){
+            let productArr=product.split(",");
+            arr=arr.filter((pr)=>productArr.find((pa)=>pr.productid === +pa.substring(2)))
+          }
+          if(sort==="QtyAsc"){
+            arr=arr.sort((st1,st2)=>st1.quantity-st2.quantity);
+          }
+          if(sort==="QtyDesc"){
+            arr=arr.sort((st1,st2)=>st2.quantity-st1.quantity);
+          }
+          if(sort==="ValueAsc"){
+            arr=arr.sort((st1,st2)=>st1.quantity*st1.price - st2.quantity * st2.price);
+          }
+          if(sort==="ValueDesc"){
+            arr=arr.sort((st1,st2)=>st2.quantity*st2.price - st1.quantity * st1.price);
+          }
+          res.send(arr)
       }
   })
 });
@@ -203,78 +318,6 @@ app.post("/purchases",function(req,res){
                   res.send(body)
               }
           })
-          
-      }
-  })
-})
-
-app.post("/customers",function(req,res){
-  let body=req.body
-  fs.readFile(fname,"utf8",function(err,content){
-      if(err) console.log(err);
-      else{
-          let data=JSON.parse(content);
-          data.push(body);
-          let data1=JSON.stringify(data);
-          fs.writeFile(fname,data1,function(err){
-              if(err) console.log(err);
-              else{
-                  res.send(body)
-              }
-          })
-          
-      }
-  })
-})
-
-app.put("/customers/:id",function(req,res){
-  let body=req.body;
-  let id=req.params.id
-  fs.readFile(fname,"utf8",function(err,content){
-      if(err) console.log(err);
-      else{
-          let data=JSON.parse(content);
-          let index=data.findIndex(ct=>ct.id===id)
-          if(index>=0){
-              let updatedCst={...body};
-              data[index]=updatedCst;
-              let data1=JSON.stringify(data);
-              fs.writeFile(fname,data1,function(err){
-                  if(err) console.log(err);
-                  else{
-                      res.send(updatedCst)
-                  }
-              })
-          }
-          else{
-              res.status(404).send("No customer Found");
-          }
-      }
-  })
-})
-app.delete("/customers/:id",function(req,res){
-  let id=req.params.id
-  fs.readFile(fname,"utf8",function(err,content){
-      if(err) console.log(err);
-      else{
-          let data=JSON.parse(content);
-          let index=data.findIndex(ct=>ct.id===id)
-          if(index>=0){
-              let deletedCst=data.splice(index,1);
-              let data1=JSON.stringify(data);
-              fs.writeFile(fname,data1,function(err){
-                  if(err) console.log(err);
-                  else{
-                      res.send(deletedCst)
-                  }
-              })
-          }
-          else{
-              res.status(404).send("No Customer Found")
-          }
-          
-          
-          
           
       }
   })
